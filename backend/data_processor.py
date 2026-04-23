@@ -9,8 +9,7 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 from sklearn.preprocessing import MinMaxScaler
-import warnings
-warnings.filterwarnings('ignore')
+
 
 class DataProcessor:
     """
@@ -54,9 +53,12 @@ class DataProcessor:
             
             if data.empty:
                 raise Exception("No data returned from Yahoo Finance")
-            
+
+            # yfinance >= 0.2 returns MultiIndex columns even for a single
+            # ticker, so data['Close'] is a (N, 1) DataFrame and .values is 2-D.
+            # Downstream code assumes a 1-D series, so flatten once at the source.
             self.raw_data = data
-            self.oil_prices = data['Close'].values
+            self.oil_prices = np.asarray(data['Close']).reshape(-1)
             self.dates = data.index
             
             print(f"Successfully fetched {len(self.oil_prices)} data points")
@@ -108,36 +110,43 @@ class DataProcessor:
         
         return synthetic_data
     
-    def create_sequences(self, data, target_col=0):
+    def create_sequences(self, data, target_col=0, scaler=None):
         """
-        Create sequences for LSTM training
-        
+        Create sequences for LSTM training.
+
         Args:
             data: Input data array or DataFrame
             target_col: Target column index for multivariate data
-        
+            scaler: Optional pre-fit scaler. If None, a fresh MinMaxScaler
+                is created and fit on `data`, then returned to the caller.
+
         Returns:
-            tuple: (X, y) - Feature sequences and target values
+            tuple: (X, y, scaler) — the scaler is returned so callers that
+                process multiple independent series (e.g. wavelet components)
+                can keep per-series scalers instead of sharing one.
         """
         if isinstance(data, pd.DataFrame):
             data = data.values
-        
+
         if data.ndim == 1:
             data = data.reshape(-1, 1)
-        
-        # Scale the data
-        scaled_data = self.scaler.fit_transform(data)
-        
+
+        if scaler is None:
+            scaler = MinMaxScaler(feature_range=(0, 1))
+            scaled_data = scaler.fit_transform(data)
+        else:
+            scaled_data = scaler.transform(data)
+
         X, y = [], []
-        
+
         for i in range(self.sequence_length, len(scaled_data) - self.prediction_horizon + 1):
             X.append(scaled_data[i - self.sequence_length:i])
             if scaled_data.shape[1] == 1:
                 y.append(scaled_data[i:i + self.prediction_horizon, 0])
             else:
                 y.append(scaled_data[i:i + self.prediction_horizon, target_col])
-        
-        return np.array(X), np.array(y)
+
+        return np.array(X), np.array(y), scaler
     
     def split_data(self, X, y, train_ratio=0.8, validation_ratio=0.1):
         """

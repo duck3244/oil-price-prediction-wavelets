@@ -198,7 +198,7 @@ class OilPricePredictionApp:
             self._plot_trading_signals(trading_signals, current_price, predictions)
         
         # Create comprehensive summary
-        create_summary_report_plot(prediction_data, risk_report, trading_signals)
+        create_summary_report(prediction_data, risk_report, trading_signals)
         
         return complete_results
     

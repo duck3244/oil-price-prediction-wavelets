@@ -11,9 +11,6 @@ import matplotlib.dates as mdates
 from matplotlib.patches import Rectangle
 import seaborn as sns
 from typing import Dict, List, Tuple, Optional, Any, Union
-import warnings
-
-warnings.filterwarnings('ignore')
 
 # Set plotting style
 try:

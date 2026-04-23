@@ -11,30 +11,33 @@ from tensorflow.keras import layers, Model, Sequential
 from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from typing import Dict, List, Tuple, Optional
-import warnings
-warnings.filterwarnings('ignore')
 
-# Set random seeds for reproducibility
-np.random.seed(42)
-tf.random.set_seed(42)
 
 class ModelBuilder:
     """
     Comprehensive model building class for oil price prediction
     """
-    
-    def __init__(self, sequence_length: int = 60, prediction_horizon: int = 1):
+
+    def __init__(self, sequence_length: int = 60, prediction_horizon: int = 1,
+                 seed: Optional[int] = 42):
         """
         Initialize the model builder
-        
+
         Args:
             sequence_length: Length of input sequences
             prediction_horizon: Number of steps to predict ahead
+            seed: Optional random seed for reproducibility. Pass None to skip
+                seeding (e.g. when multiple builders are created in a process
+                and global seed reset is undesirable).
         """
         self.sequence_length = sequence_length
         self.prediction_horizon = prediction_horizon
         self.models = {}
         self.histories = {}
+
+        if seed is not None:
+            np.random.seed(seed)
+            tf.random.set_seed(seed)
         
         # Check GPU availability
         gpus = tf.config.list_physical_devices('GPU')
@@ -287,9 +290,11 @@ class ModelBuilder:
         expert2 = layers.Dense(self.prediction_horizon)(lstm2_out)
         experts.append(expert2)
         
-        # Expert 3: Attention-based
+        # Expert 3: Attention-based. Score each timestep with Dense(1), then
+        # normalise across the time axis so the weights actually sum to 1.
         attention_lstm = layers.LSTM(64, return_sequences=True, dropout=0.2)(inputs)
-        attention_weights = layers.Dense(1, activation='softmax')(attention_lstm)
+        attention_scores = layers.Dense(1)(attention_lstm)
+        attention_weights = layers.Softmax(axis=1)(attention_scores)
         attention_applied = layers.Multiply()([attention_lstm, attention_weights])
         attention_sum = layers.Lambda(lambda x: tf.reduce_sum(x, axis=1))(attention_applied)
         expert3 = layers.Dense(self.prediction_horizon)(attention_sum)

@@ -152,3 +152,51 @@ cython_debug/
 #.idea/
 *.h5
 *.xls
+
+# ──────────────────────────────────────────────
+# Project specific (대용량 폴더 · 파일)
+# ──────────────────────────────────────────────
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+*.local
+
+# ML 모델 체크포인트 / 산출물
+*.keras
+*.ckpt
+*.pb
+*.tflite
+*.onnx
+*.pt
+*.pth
+*.safetensors
+saved_model/
+checkpoints/
+logs/
+runs/
+mlruns/
+wandb/
+
+# 대용량 데이터 / 엑셀 / 압축 파일
+*.xlsx
+*.csv.gz
+*.parquet
+*.feather
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/

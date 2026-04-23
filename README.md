@@ -1,387 +1,250 @@
-# 🛢️ Oil Price Prediction using Wavelets and TensorFlow 2.0
+# Oil Price Prediction with Wavelets
 
-현대적인 웨이블릿 분해와 딥러닝 기법을 결합한 유가 예측 시스템입니다.
+![Demo](./demo.png)
 
-## 🌟 주요 특징
+웨이블릿 분해와 딥러닝(LSTM 계열)을 결합해 원유 선물(WTI / Brent) 가격을 예측하고, 리스크 분석·트레이딩 시그널까지 제공하는 풀스택 시스템입니다.
 
-### 🔬 기술적 특징
-- **웨이블릿 분해**: Discrete Wavelet Transform으로 가격 신호 분해
-- **딥러닝 모델**: TensorFlow 2.0 기반 다양한 LSTM 아키텍처
-- **앙상블 방법**: 여러 모델 조합으로 예측 정확도 향상
-- **실시간 데이터**: Yahoo Finance API 연동
-- **종합적 평가**: MSE, MAE, RMSE, R², MAPE 등 다양한 메트릭
+- **Backend**: Python · TensorFlow 2.x · FastAPI
+- **Frontend**: Vue 3 · Vite · TypeScript · Pinia · Chart.js
+- **ML Core**: PyWavelets(DWT) + LSTM / BiLSTM / CNN-LSTM / Attention / Ensemble
 
-### 📊 분석 기능
-- **위험 분석**: VaR, CVaR, 변동성 분석
-- **트레이딩 신호**: 매수/매도 추천 및 포지션 사이징
-- **시각화**: 종합적인 차트와 대시보드
-- **모델 해석**: 구성요소별 기여도 분석
+## 주요 기능
 
-## 🚀 빠른 시작
+- **웨이블릿 분해 기반 예측** — 가격 신호를 trend + detail 성분으로 분해하여 주파수 대역별로 서로 다른 LSTM 아키텍처로 학습
+- **앙상블 모델** — 게이팅 네트워크로 가중치를 학습하는 advanced ensemble 지원
+- **리스크 분석** — 변동성, VaR/CVaR(Historical·Parametric·Cornish-Fisher), 드로다운, 예측 불확실성, 모델 안정성
+- **트레이딩 시그널** — BUY/SELL/HOLD · 강도 · 신뢰도 · 포지션 사이징(Kelly·VaR 기반) · 손절/익절
+- **REST API** — FastAPI + CORS, Vue SPA와 통신
+- **시각화** — Matplotlib 기반 가격/분해/학습/리스크/시그널 대시보드
 
-### 설치
+## 프로젝트 구조
+
+```
+oil-price-prediction-wavelets/
+├── backend/                       # Python 백엔드 (ML + API)
+│   ├── main.py                    # CLI 엔트리 (basic / advanced / comparison)
+│   ├── predictor_engine.py        # 전체 파이프라인 오케스트레이터
+│   ├── data_processor.py          # yfinance 수집·시퀀스 생성·스케일링
+│   ├── wavelet_analyzer.py        # DWT 분해·복원·디노이징
+│   ├── model_builder.py           # Keras 모델 팩토리 (LSTM variants)
+│   ├── risk_analyzer.py           # RiskAnalyzer + TradingSignalGenerator
+│   ├── visualization_tools.py     # Matplotlib 시각화
+│   ├── config_example.json        # 컴포넌트별 모델 설정 예시
+│   ├── requirements.txt
+│   ├── api/                       # FastAPI REST 레이어
+│   │   ├── app.py                 #   앱 팩토리 + CORS
+│   │   ├── schemas.py             #   Pydantic 모델
+│   │   ├── routers/               #   /api/health · /api/predict · /api/wavelets
+│   │   └── services/              #   prediction_service
+│   └── tests/                     # 스모크 테스트
+├── frontend/                      # Vue 3 SPA
+│   └── src/
+│       ├── main.ts · App.vue
+│       ├── router/                #  / → Dashboard, /analyze → Analyze
+│       ├── stores/prediction.ts   # Pinia 스토어
+│       ├── api/client.ts          # axios + 타입 정의
+│       ├── views/                 # AnalyzeView, DashboardView
+│       └── components/PriceChart.vue
+└── docs/
+    ├── architecture.md            # 시스템 아키텍처 문서
+    └── uml.md                     # Mermaid UML 다이어그램
+```
+
+자세한 구조·데이터 플로우·설계 결정은 [`docs/architecture.md`](docs/architecture.md), 다이어그램은 [`docs/uml.md`](docs/uml.md) 참고.
+
+## 빠른 시작
+
+### Backend (API 서버)
 
 ```bash
-# 의존성 설치
+cd backend
 pip install -r requirements.txt
-
-# 또는 개발 모드로 설치
-pip install -e .
+uvicorn api.app:app --reload --port 8000
 ```
 
-### 기본 사용법
-
-```python
-# 기본 예측 실행
-python main.py --mode basic
-
-# 고급 분석 실행
-python main.py --mode advanced
-
-# Brent 유가 예측
-python main.py --symbol BZ=F --days 60
-
-# 웨이블릿 비교 분석
-python main.py --mode comparison
+기동 후 헬스체크:
+```bash
+curl http://localhost:8000/api/health
 ```
 
-### 프로그래밍 방식 사용
+### Frontend (Vue 3)
+
+```bash
+cd frontend
+npm install
+npm run dev   # http://localhost:5173
+```
+
+개발용 CORS는 `http://localhost:5173` 기준으로 설정돼 있습니다. API base URL은 `VITE_API_BASE_URL` 환경변수로 재정의 가능 (기본값 `/api`).
+
+### CLI (서버 없이 배치 예측)
+
+```bash
+cd backend
+python main.py --mode basic --symbol CL=F --days 30          # 기본 30일 예측
+python main.py --mode advanced --symbol BZ=F                 # 고급 분석 (Brent)
+python main.py --mode comparison                             # 웨이블릿 비교
+```
+
+## REST API
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `GET`  | `/api/health`   | TensorFlow 버전, GPU 사용 가능 여부 |
+| `GET`  | `/api/wavelets` | 사용 가능한 웨이블릿 목록 (family별) |
+| `POST` | `/api/predict`  | 학습 + 예측 실행 (요청당 30~90초 소요, timeout 10분) |
+
+**Request 예시 (`POST /api/predict`)**:
+```json
+{
+  "symbol": "CL=F",
+  "days": 30,
+  "wavelet": "db4",
+  "decomposition_level": 5,
+  "sequence_length": 60,
+  "epochs": 100
+}
+```
+
+**Response 요약**:
+```json
+{
+  "symbol": "CL=F",
+  "current_price": 75.32,
+  "historical_dates": ["2024-04-01", "..."],
+  "historical_prices": [72.10, 73.50, "..."],
+  "predictions": [75.80, 76.20, "..."],
+  "component_predictions": [
+    {"name": "trend",    "values": [...]},
+    {"name": "detail_1", "values": [...]}
+  ],
+  "wavelet": "db4",
+  "decomposition_level": 5,
+  "generated_at": "2026-04-23T10:30:00Z"
+}
+```
+
+## 프로그래밍 방식 사용
 
 ```python
 from predictor_engine import PredictionEngine
 from risk_analyzer import RiskAnalyzer, TradingSignalGenerator
 
-# 예측 엔진 초기화
-engine = PredictionEngine(
-    wavelet='db4',
-    decomposition_level=5,
-    sequence_length=60
+engine = PredictionEngine(wavelet='db4', decomposition_level=5, sequence_length=60)
+
+results = engine.run_full_pipeline(symbol='CL=F', n_predictions=30, epochs=100)
+
+risk_report = RiskAnalyzer().generate_risk_report(
+    prices=results['historical_prices'],
+    predictions=results['predictions'],
+    component_predictions=results['component_predictions'],
 )
 
-# 전체 파이프라인 실행
-results = engine.run_full_pipeline(
-    symbol="CL=F",
-    n_predictions=30
-)
-
-# 위험 분석
-risk_analyzer = RiskAnalyzer()
-risk_report = risk_analyzer.generate_risk_report(
-    historical_prices, predictions
-)
-
-# 트레이딩 신호 생성
-signal_gen = TradingSignalGenerator(risk_tolerance='medium')
-signals = signal_gen.generate_comprehensive_signals(
-    current_price, predictions, risk_report
+signals = TradingSignalGenerator(risk_tolerance='medium').generate_comprehensive_signals(
+    current_price=results['current_price'],
+    predictions=results['predictions'],
+    risk_metrics=risk_report,
+    portfolio_value=100_000,
 )
 ```
 
-## 📁 프로젝트 구조
+## 모델 아키텍처
 
 ```
-oil-price-prediction-wavelets/
-├── main.py                    # 메인 실행 파일
-├── data_processor.py          # 데이터 처리 모듈
-├── wavelet_analyzer.py        # 웨이블릿 분석 모듈  
-├── model_builder.py           # 모델 구축 모듈
-├── predictor_engine.py        # 예측 엔진 모듈
-├── risk_analyzer.py           # 리스크 분석 모듈
-├── visualization_tools.py     # 시각화 도구 모듈
-├── requirements.txt           # 의존성 목록
-├── setup.py                  # 패키지 설정
-└── README.md                 # 프로젝트 문서
+원본 가격 ──► [DWT 분해] ──► trend + detail_1..5
+                                    │
+                  컴포넌트별 독립 스케일러 + 시퀀스 생성
+                                    │
+                   ┌────────────────┼────────────────┐
+                   ▼                ▼                ▼
+              LSTM(trend)   BiLSTM(detail_1)   CNN-LSTM(detail_2) ...
+                   │                │                │
+                   └────── 예측 후 역정규화 ─────────┘
+                                    │
+                                  Σ 합 ──► 최종 예측
+                                    │
+                              리스크 분석 · 시그널 생성
 ```
 
-## 🔧 모듈 설명
+**지원 모델 (`model_builder.py`)**
+- `simple` — 2× LSTM + Dense
+- `bidirectional` — 2× BiLSTM + Dense
+- `cnn_lstm` — Conv1D + MaxPool + LSTM
+- `attention` — Scaled dot-product attention on LSTM
+- `ensemble` — LSTM·BiLSTM·CNN-LSTM 평균
+- `advanced_ensemble` — 전문가 3개 + gating network (trend에 권장)
 
-### 1. `data_processor.py`
-- 유가 데이터 수집 (Yahoo Finance)
-- 데이터 전처리 및 시퀀스 생성
-- 기술적 지표 계산
-- 통계적 분석
-
-### 2. `wavelet_analyzer.py` 
-- 웨이블릿 분해 (다양한 웨이블릿 지원)
-- 구성요소 분석 및 재구성
-- 신호 잡음 제거
-- 웨이블릿 비교 분석
-
-### 3. `model_builder.py`
-- LSTM 모델 아키텍처 (Simple, Bidirectional, CNN-LSTM, Attention)
-- 앙상블 모델 구축
-- 모델 훈련 및 평가
-- 하이퍼파라미터 최적화
-
-### 4. `predictor_engine.py`
-- 전체 예측 파이프라인 조정
-- 구성요소별 모델 훈련
-- 예측 생성 및 재구성
-- 모델 저장/로드 기능
-
-### 5. `risk_analyzer.py`
-- 변동성 분석 (일간, 연간, 롤링)
-- VaR/CVaR 계산
-- 드로다운 분석
-- 트레이딩 신호 생성
-- 포지션 사이징
-
-### 6. `visualization_tools.py`
-- 가격 예측 차트
-- 웨이블릿 분해 시각화
-- 위험 분석 대시보드
-- 트레이딩 신호 대시보드
-- 모델 성능 비교
-
-## 📊 사용 예제
-
-### 예제 1: 기본 예측
-
-```python
-from main import OilPricePredictionApp
-
-app = OilPricePredictionApp()
-
-# WTI 유가 30일 예측
-results = app.run_basic_prediction(
-    symbol="CL=F",
-    days_ahead=30,
-    plot_results=True
-)
-
-print(f"현재 가격: ${results['predictions']['current_price']:.2f}")
-print(f"내일 예측: ${results['predictions']['predictions'][0]:.2f}")
-```
-
-### 예제 2: 고급 분석
-
-```python
-# 사용자 정의 설정
-config = {
-    'wavelet': 'db8',
-    'decomposition_level': 6,
-    'sequence_length': 120,
-    'prediction_days': 60,
-    'model_config': {
-        'trend': 'advanced_ensemble',
-        'detail_1': 'attention',
-        'detail_2': 'bidirectional'
-    },
-    'risk_analysis': {
-        'risk_tolerance': 'high'
-    }
-}
-
-# 고급 분석 실행
-results = app.run_advanced_analysis(
-    symbol="BZ=F",  # Brent 유가
-    config=config
-)
-```
-
-### 예제 3: 웨이블릿 비교
-
-```python
-# 여러 웨이블릿 성능 비교
-comparison = app.run_comparison_analysis(
-    symbols=["CL=F", "BZ=F"],
-    wavelets=['db4', 'db8', 'haar', 'bior2.2', 'coif3']
-)
-
-# 최적 웨이블릿 확인
-for symbol, results in comparison.items():
-    best_wavelet = min(results.keys(), 
-                      key=lambda k: results[k].get('avg_validation_loss', float('inf')))
-    print(f"{symbol} 최적 웨이블릿: {best_wavelet}")
-```
-
-## 🎯 모델 아키텍처
-
-### 웨이블릿 분해
-```
-원본 신호 → [웨이블릿 분해] → 트렌드 + 세부성분들
-                                ↓
-                         개별 LSTM 모델들
-                                ↓
-                         구성요소 예측들 → [재구성] → 최종 예측
-```
-
-### LSTM 모델 종류
-
-1. **Simple LSTM**: 기본적인 LSTM 구조
-2. **Bidirectional LSTM**: 양방향 정보 처리
-3. **CNN-LSTM**: 컨볼루션과 LSTM 조합
-4. **Attention LSTM**: 어텐션 메커니즘 적용
-5. **Ensemble**: 여러 모델의 앙상블
-6. **Advanced Ensemble**: 학습된 가중치 앙상블
-
-## 📈 성능 메트릭
-
-### 예측 정확도
-- **MSE**: Mean Squared Error
-- **MAE**: Mean Absolute Error  
-- **RMSE**: Root Mean Squared Error
-- **R²**: 결정계수
-- **MAPE**: Mean Absolute Percentage Error
-
-### 위험 메트릭
-- **VaR**: Value at Risk (95% 신뢰구간)
-- **CVaR**: Conditional Value at Risk
-- **변동성**: 일간/연간 변동성
-- **최대 드로다운**: 최대 손실 구간
-- **샤프 비율**: 위험 조정 수익률
-
-## 🛡️ 위험 분석
-
-### 변동성 분석
-- 30/60/90일 롤링 변동성
-- 지수가중 이동평균 변동성
-- 변동성 클러스터링 분석
-- 변동성 백분위수 분석
-
-### VaR 계산 방법
-- **Historical VaR**: 과거 데이터 기반
-- **Parametric VaR**: 정규분포 가정
-- **Modified VaR**: Cornish-Fisher 보정
-- **Conditional VaR**: 기대손실
-
-## 📊 트레이딩 신호
-
-### 신호 생성
-- **방향성 신호**: BUY/SELL/HOLD
-- **강도**: STRONG/MODERATE/WEAK
-- **신뢰도**: HIGH/MEDIUM/LOW
-- **시간대별**: 1일/1주/1개월 전망
-
-### 포지션 사이징
-- **위험 기반**: 포트폴리오 대비 위험 비율
-- **변동성 조정**: 현재 변동성 반영
-- **Kelly 기준**: 수학적 최적 비율
-- **VaR 기반**: 손실 위험 제한
-
-### 손절/익절 설정
-- **동적 레벨**: 변동성 기반 자동 조정
-- **위험-수익 비율**: 최소 1:2 권장
-- **트레일링 스탑**: 수익 보호 메커니즘
-
-## 🎨 시각화 기능
-
-### 차트 종류
-- **가격 예측 차트**: 과거 + 미래 가격
-- **웨이블릿 분해**: 구성요소별 분해 결과
-- **위험 대시보드**: 종합 위험 분석
-- **트레이딩 시그널**: 매매 신호 시각화
-- **모델 성능**: 훈련 결과 비교
-
-### 대시보드 구성
-- **실시간 업데이트**: 최신 데이터 반영
-- **인터랙티브**: 확대/축소, 필터링
-- **다중 시간대**: 일간/주간/월간 뷰
-- **알림 시스템**: 중요 신호 하이라이트
-
-## ⚙️ 설정 및 커스터마이징
-
-### 웨이블릿 설정
-```python
-# 사용 가능한 웨이블릿들
-wavelets = {
-    'Daubechies': ['db1', 'db2', ..., 'db20'],
-    'Biorthogonal': ['bior1.1', 'bior2.2', ...],
-    'Coiflets': ['coif1', 'coif2', ...],
-    'Haar': ['haar'],
-    'Symlets': ['sym2', 'sym3', ...]
+**설정 예시 (`backend/config_example.json`)**
+```json
+{
+  "wavelet": "db4",
+  "decomposition_level": 5,
+  "sequence_length": 60,
+  "model_config": {
+    "trend":    "ensemble",
+    "detail_1": "bidirectional",
+    "detail_2": "cnn_lstm",
+    "detail_3": "attention",
+    "detail_4": "simple",
+    "detail_5": "simple"
+  }
 }
 ```
 
-### 모델 설정
+## 메트릭
+
+**예측 정확도** — MSE · MAE · RMSE · R² · MAPE
+**리스크** — 일간/연간 변동성, 30·60·90일 롤링, Historical/Parametric/Cornish-Fisher VaR, CVaR, 최대/평균/현재 드로다운, 드로다운 지속 기간
+**시그널** — 방향(BUY·SELL·HOLD), 강도(STRONG·MODERATE·WEAK·NEUTRAL), 신뢰도(HIGH·MEDIUM·LOW), 1일/1주/1개월 horizon
+
+## 지원 심볼
+
+- `CL=F` — WTI 원유 선물 (기본)
+- `BZ=F` — Brent 원유 선물
+- `HO=F` — 난방유 선물
+- `RB=F` — 휘발유 선물
+
+yfinance API 실패 시 `DataProcessor`가 합성 데이터로 fallback 합니다 (개발·테스트용).
+
+## 문제 해결
+
+**메모리 부족**
 ```python
-model_config = {
-    'trend': 'ensemble',        # 트렌드용 모델
-    'detail_1': 'bidirectional', # 고주파 성분용
-    'detail_2': 'cnn_lstm',     # 중주파 성분용
-    'detail_3': 'attention',    # 저주파 성분용
-    'detail_4': 'simple',       # 기타 성분용
-    'detail_5': 'simple'
-}
+# 배치·시퀀스 크기 축소
+engine = PredictionEngine(sequence_length=30)
+engine.train_component_models(batch_size=16, ...)
 ```
 
-### 훈련 설정
+**GPU 메모리 증가 허용**
 ```python
-training_config = {
-    'epochs': 100,
-    'batch_size': 32,
-    'train_ratio': 0.8,
-    'validation_ratio': 0.1,
-    'early_stopping_patience': 20,
-    'reduce_lr_patience': 10
-}
-```
-
-## 🔄 데이터 소스
-
-### 지원하는 심볼
-- **CL=F**: WTI 원유 선물
-- **BZ=F**: Brent 원유 선물
-- **HO=F**: 난방유 선물
-- **RB=F**: 휘발유 선물
-
-### 데이터 주기
-- **일간**: 기본 분석 단위
-- **실시간**: Yahoo Finance API
-- **과거 데이터**: 2010년부터 현재까지
-
-## 🛠️ 문제 해결
-
-### 자주 발생하는 문제들
-
-#### 데이터 수집 오류
-```bash
-# 인터넷 연결 확인
-ping finance.yahoo.com
-
-# 대체 심볼 시도
-python main.py --symbol BZ=F
-```
-
-#### 메모리 부족
-```python
-# 배치 크기 줄이기
-config['training']['batch_size'] = 16
-
-# 시퀀스 길이 줄이기  
-config['sequence_length'] = 30
-```
-
-#### GPU 메모리 부족
-```python
-# TensorFlow GPU 메모리 증가 허용
 import tensorflow as tf
-gpus = tf.config.list_physical_devices('GPU')
-for gpu in gpus:
+for gpu in tf.config.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 ```
 
-### 성능 최적화
-
-#### CPU 최적화
+**Mixed Precision (학습 속도 향상)**
 ```python
-# 멀티스레딩 설정
-import tensorflow as tf
-tf.config.threading.set_intra_op_parallelism_threads(4)
-tf.config.threading.set_inter_op_parallelism_threads(4)
-```
-
-#### 훈련 속도 향상
-```python
-# Mixed Precision 사용
 from tensorflow.keras import mixed_precision
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_global_policy(policy)
+mixed_precision.set_global_policy('mixed_float16')
 ```
 
-## 📚 참고 자료
+**CORS 에러** — 프런트 개발 서버 포트가 5173이 아니면 `backend/api/app.py`의 CORS allow-origin 목록 수정.
 
-### 기술 문서
-- [TensorFlow 2.0 Documentation](https://www.tensorflow.org/)
-- [PyWavelets Documentation](https://pywavelets.readthedocs.io/)
-- [Yahoo Finance API](https://pypi.org/project/yfinance/)
+## 테스트
+
+```bash
+cd backend
+pytest tests/
+```
+
+## 참고 자료
+
+- [TensorFlow 2.x](https://www.tensorflow.org/)
+- [PyWavelets](https://pywavelets.readthedocs.io/)
+- [yfinance](https://pypi.org/project/yfinance/)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [Vue 3](https://vuejs.org/) · [Vite](https://vitejs.dev/) · [Pinia](https://pinia.vuejs.org/)
+
+## 라이선스
+
+MIT — `LICENSE` 참조.

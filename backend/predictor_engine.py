@@ -9,8 +9,6 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional, Any
 from sklearn.preprocessing import MinMaxScaler
 import pickle
-import warnings
-warnings.filterwarnings('ignore')
 
 from data_processor import DataProcessor
 from wavelet_analyzer import WaveletAnalyzer
@@ -149,33 +147,41 @@ class PredictionEngine:
             model_type = model_config.get(component_name, 'simple')
             
             try:
-                # Create sequences
-                X, y = self.data_processor.create_sequences(component_data.reshape(-1, 1))
-                
+                # Fit the scaler on the training portion only, then transform
+                # the full series. This avoids leaking val/test statistics into
+                # the scaling and keeps each component's scaler independent.
+                train_end = int(len(component_data) * train_ratio)
+                comp_scaler = MinMaxScaler(feature_range=(0, 1))
+                comp_scaler.fit(component_data[:train_end].reshape(-1, 1))
+
+                X, y, comp_scaler = self.data_processor.create_sequences(
+                    component_data.reshape(-1, 1), scaler=comp_scaler
+                )
+
                 if len(X) == 0:
                     print(f"   ⚠️ No sequences generated for {component_name}")
                     continue
-                
+
                 # Split data
                 X_train, X_val, X_test, y_train, y_val, y_test = self.data_processor.split_data(
                     X, y, train_ratio, validation_ratio
                 )
-                
+
                 # Create model
                 input_shape = (X.shape[1], X.shape[2])
                 model = self.model_builder.create_model_by_type(
                     model_type, input_shape, name=f"{component_name}_{model_type}"
                 )
-                
+
                 # Train model
                 history = self.model_builder.train_model(
                     model, X_train, y_train, X_val, y_val,
                     epochs=epochs, batch_size=batch_size, verbose=0
                 )
-                
+
                 # Store results
                 self.component_models[component_name] = model
-                self.component_scalers[component_name] = self.data_processor.scaler
+                self.component_scalers[component_name] = comp_scaler
                 self.component_histories[component_name] = history
                 
                 # Evaluate on test set

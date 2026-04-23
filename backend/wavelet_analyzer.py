@@ -9,12 +9,11 @@ import pandas as pd
 import pywt
 import matplotlib.pyplot as plt
 from typing import Dict, List, Tuple, Optional
-import warnings
-warnings.filterwarnings('ignore')
+
 
 class WaveletAnalyzer:
     """
-    Comprehensive wavelet analysis clpis for time series decomposition
+    Comprehensive wavelet analysis class for time series decomposition.
     """
     
     def __init__(self, wavelet='db4', decomposition_level=5):
